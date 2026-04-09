@@ -1,10 +1,10 @@
 # Kurbot Friend
 
-Kurbot Friend is a Devvit web app for Reddit designed as an AI-powered vibe architect companion. It helps users navigate coding and technical-audit friction with supportive guidance and flow-state suggestions.
+Kurbot Friend is a fun Devvit chat app for Reddit built around quick, playful conversations with a coding buddy twist. The goal is to make users smile, feel encouraged, and get unstuck fast.
 
 ## Status
 
-WIP — active development (MVP in progress).
+WIP — shaping the chat experience and personality-first MVP.
 
 ## Tech Stack
 
@@ -14,12 +14,12 @@ WIP — active development (MVP in progress).
 - API Layer: [tRPC](https://trpc.io/)
 - Language: [TypeScript](https://www.typescriptlang.org/)
 
-## Planned Features
+## Core Direction
 
-- Interactive dashboard with vibe/status display
-- Action triggers for Deep Work, Creative Flow, and Technical Audit
-- AI-driven responses through external LLM integration
-- Focus streak persistence using Reddit storage (Redis)
+- A chat-first UI that feels playful and low-pressure
+- Quick prompts like “I’m stuck” or “Hype me up”
+- AI-powered replies later for more personality and interaction
+- Light progress or streak tracking using Reddit storage (Redis)
 
 ## Getting Started
 

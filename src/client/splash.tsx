@@ -8,11 +8,7 @@ import { createRoot } from 'react-dom/client';
 export const Splash = () => {
   return (
     <div className="flex relative flex-col justify-center items-center min-h-screen gap-4 bg-white dark:bg-gray-900">
-      <img
-        className="object-contain w-1/2 max-w-[250px] mx-auto"
-        src="/snoo.png"
-        alt="Snoo"
-      />
+    
       <div className="flex flex-col items-center gap-2">
         <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
           Hey {context.username ?? 'user'} 👋
