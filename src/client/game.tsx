@@ -118,7 +118,7 @@ export const App = () => {
   const sendDraft = () => {
     const trimmedDraft = draft.trim();
     if (isSendDisabled) {
-      return;
+      return; 
     }
 
   setIsTyping(true);
