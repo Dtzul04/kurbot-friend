@@ -5,7 +5,6 @@ import { createRoot } from 'react-dom/client';
 import { navigateTo } from '@devvit/web/client';
 import { StrictMode, useEffect, useRef, useState } from 'react';
 
-type PromptKey = 'stuck' | 'hype' | 'audit';
 type ChatSender = 'you' | 'kurbot';
 type ChatMessage = {
   id: number;
@@ -16,20 +15,8 @@ type ChatBubbleProps = {
   chatMessage: ChatMessage;
 };
 
-const PROMPT_LABELS: Record<PromptKey, string> = {
-  stuck: "I'm stuck",
-  hype: 'Hype me up',
-  audit: 'Audit this vibe',
-};
 
-const PROMPT_RESPONSES: Record<PromptKey, string> = {
-  stuck:
-    'Okay, breathe. Pick the tiniest next step and bully the bug with vibes for 10 minutes only.',
-  hype:
-    'You are literally one locked-in session away from making this app feel alive. Tiny wins count.',
-  audit:
-    'Current vibe check: 82% genius, 18% chaos. That is still shippable.',
-};
+const PLACEHOLDER_KURBOT_REPLY = 'Got It.';
 
 const createUserMessage = (id: number, text: string): ChatMessage => {
   return {
@@ -79,7 +66,7 @@ export const App = () => {
     {
       id: 1,
       sender: 'kurbot',
-      text: 'Yo. I am Kurbot Friend. Hit a quick prompt or type what you are battling.',
+      text: 'Hey — I am Kurbot Friend. Type anything to get started.',
     },
   ]);
 
@@ -108,33 +95,16 @@ export const App = () => {
     setMessages((previousMessages) => [...previousMessages, ...newMessages]);
   };
 
-  const sendPrompt = (promptKey: PromptKey) => {
-    addMessages([
-      createUserMessage(getNextMessageId(), PROMPT_LABELS[promptKey]),
-      createKurbotReply(getNextMessageId(), PROMPT_RESPONSES[promptKey]),
-    ]);
-  };
-
   const sendDraft = () => {
     const trimmedDraft = draft.trim();
-    if (isSendDisabled) {
-      return; 
+    if (!trimmedDraft) {
+      return;
     }
 
-  setIsTyping(true);
-
-    addMessages([
-      createUserMessage(getNextMessageId(), trimmedDraft),
-      createKurbotReply(
-        getNextMessageId(),
-        `Noted. "${trimmedDraft}" is now on the mission board. Want a tiny next step or a hype blast?`
-      ),
-    ]);
     setDraft('');
-
-    setTimeout(() => {
-      setIsTyping(false);
-    }, 700);
+    setIsTyping(true);
+    addMessages([createUserMessage(getNextMessageId(), trimmedDraft), createKurbotReply(getNextMessageId(), PLACEHOLDER_KURBOT_REPLY)]);
+    setTimeout(() => setIsTyping(false), 700);
   };
 
   return (
@@ -174,7 +144,7 @@ export const App = () => {
       >
         <input
           className="flex-1 h-10 rounded-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 text-sm text-gray-900 dark:text-gray-100"
-          placeholder="Type your chaos..."
+          placeholder="Type your response..."
           value={draft}
           onChange={(event: ChangeEvent<HTMLInputElement>) =>
             setDraft(event.target.value)
@@ -192,31 +162,6 @@ export const App = () => {
           Send
         </button>
       </form>
-
-      <div className="text-xs text-gray-500 dark:text-gray-400">
-        Quick vibes:
-      </div>
-
-      <div className="flex flex-wrap items-center justify-center gap-3 mt-2">
-        <button
-          className="flex items-center justify-center bg-[#d93900] dark:bg-orange-600 text-white h-10 rounded-full cursor-pointer transition-colors px-4 hover:bg-[#c23300] dark:hover:bg-orange-700"
-          onClick={() => sendPrompt('stuck')}
-        >
-          I'm stuck
-        </button>
-        <button
-          className="flex items-center justify-center bg-[#d93900] dark:bg-orange-600 text-white h-10 rounded-full cursor-pointer transition-colors px-4 hover:bg-[#c23300] dark:hover:bg-orange-700"
-          onClick={() => sendPrompt('hype')}
-        >
-          Hype me up
-        </button>
-        <button
-          className="flex items-center justify-center bg-[#d93900] dark:bg-orange-600 text-white h-10 rounded-full cursor-pointer transition-colors px-4 hover:bg-[#c23300] dark:hover:bg-orange-700"
-          onClick={() => sendPrompt('audit')}
-        >
-          Audit this vibe
-        </button>
-      </div>
 
       <footer className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-3 text-[0.8em] text-gray-600 dark:text-gray-400">
         <button
