@@ -1,6 +1,7 @@
 import './index.css';
 
 import type { ChangeEvent, FormEvent } from 'react';
+import type { ChatRequest, ChatResponse } from '../shared/chat';
 import { createRoot } from 'react-dom/client';
 import { navigateTo } from '@devvit/web/client';
 import { StrictMode, useEffect, useRef, useState } from 'react';
@@ -14,9 +15,6 @@ type ChatMessage = {
 type ChatBubbleProps = {
   chatMessage: ChatMessage;
 };
-
-
-const PLACEHOLDER_KURBOT_REPLY = 'Got It.';
 
 const createUserMessage = (id: number, text: string): ChatMessage => {
   return {
@@ -95,7 +93,7 @@ export const App = () => {
     setMessages((previousMessages) => [...previousMessages, ...newMessages]);
   };
 
-  const sendDraft = () => {
+  const sendDraft = async() =>{
     const trimmedDraft = draft.trim();
     if (!trimmedDraft) {
       return;
@@ -103,8 +101,28 @@ export const App = () => {
 
     setDraft('');
     setIsTyping(true);
-    addMessages([createUserMessage(getNextMessageId(), trimmedDraft), createKurbotReply(getNextMessageId(), PLACEHOLDER_KURBOT_REPLY)]);
-    setTimeout(() => setIsTyping(false), 700);
+    addMessages([createUserMessage(getNextMessageId(), trimmedDraft)]);
+    try  {
+      const payload: ChatRequest = { message: trimmedDraft};
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      const data: ChatResponse = await res.json();
+      addMessages([createKurbotReply(getNextMessageId(), data.reply)]);
+    } catch {
+      addMessages ([
+        createKurbotReply(getNextMessageId(), 'Sorry - something went wrong.'),
+      ]);
+    } finally {
+      setIsTyping(false);
+    }
   };
 
   return (
@@ -139,7 +157,7 @@ export const App = () => {
         className="w-full max-w-[560px] flex gap-2"
         onSubmit={(event: FormEvent<HTMLFormElement>) => {
           event.preventDefault();
-          sendDraft();
+          void sendDraft();
         }}
       >
         <input

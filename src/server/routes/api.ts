@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { context, redis, reddit } from '@devvit/web/server';
+import type { ChatRequest, ChatResponse } from '../../shared/chat';
 import type {
   DecrementResponse,
   IncrementResponse,
@@ -90,4 +91,17 @@ api.post('/decrement', async (c) => {
     postId,
     type: 'decrement',
   });
+});
+
+api.post('/chat', async (c) => {
+  const body = await c.req.json<ChatRequest>();
+  const message = typeof body.message === 'string' ? body.message.trim() : '';
+  if (!message) {
+    return c.json({ status: 'error', message: 'Message is required' }, 400);
+  }
+
+  const username = await reddit.getCurrentUsername();
+  const reply = `Got it, ${username ?? 'friend'}. You said: “${message}”.`;
+
+  return c.json<ChatResponse>({ reply }, 200);
 });

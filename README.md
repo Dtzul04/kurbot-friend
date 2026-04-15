@@ -14,7 +14,6 @@ WIP — chat-first MVP; server-backed replies (e.g. LLM) planned later.
 - API: JSON routes under `/api` (client uses `fetch`); shared request/response types in `src/shared`
 - Persistence / platform: [Redis](https://redis.io/) and Reddit APIs via `@devvit/web/server` where needed
 - Language: [TypeScript](https://www.typescriptlang.org/)
-
 ## Direction
 
 - Chat-first expanded view; optional splash → expanded flow
