@@ -6,7 +6,6 @@ Kurbot Friend is a Devvit Web app for Reddit: a playful, chat-style “coding bu
 
 WIP — chat-first MVP; server-backed replies (e.g. LLM) planned later.
 
-## Tech Stack
 
 - Framework: [Devvit Web](https://developers.reddit.com/)
 - Frontend: [React 19](https://react.dev/), [Tailwind CSS](https://tailwindcss.com/), [Vite](https://vite.dev/)

@@ -1,7 +1,7 @@
 import './index.css';
 
 import type { ChangeEvent, FormEvent } from 'react';
-import type { ChatRequest, ChatResponse } from '../shared/chat';
+import type { ChatHistoryResponse, ChatRequest, ChatResponse } from '../shared/chat';
 import { createRoot } from 'react-dom/client';
 import { navigateTo } from '@devvit/web/client';
 import { StrictMode, useEffect, useRef, useState } from 'react';
@@ -82,6 +82,33 @@ export const App = () => {
   const isSendDisabled = draft.trim().length === 0;
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
   const [isTyping, setIsTyping] = useState<boolean>(false);
+
+  useEffect(() => {
+    const loadHistory = async () => {
+      try {
+        const res = await fetch('/api/chat/history');
+        if (!res.ok) {
+          return;
+        }
+        const data: ChatHistoryResponse = await res.json();
+        if (data.messages.length === 0) {
+          return;
+        }
+        const mapped: ChatMessage[] = data.messages.map((saved, index) => {
+          return {
+            id: index + 1,
+            sender: saved.sender,
+            text: saved.text,
+          };
+        });
+        setMessages(mapped);
+        nextMessageId.current = data.messages.length + 1;
+      } catch {
+        // Leave default welcome if history cannot be loaded
+      }
+    };
+    void loadHistory();
+  }, []);
 
   function getNextMessageId(): number {
     const id = nextMessageId.current;
