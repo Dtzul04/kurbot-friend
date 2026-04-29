@@ -1,27 +1,44 @@
 # Kurbot Friend
 
-Kurbot Friend is a Devvit Web app for Reddit: a playful, chat-style “coding buddy” meant to feel encouraging and low-pressure.
+Kurbot Friend is a [Devvit Web](https://developers.reddit.com/) app for Reddit: a supportive, chat-style companion in the expanded post view, with a lightweight splash for the feed.
 
-## Status
+## What it does
 
-WIP — chat-first MVP; server-backed replies (e.g. LLM) planned later.
+- **Inline (`splash.html`)** — entry to open the full experience.
+- **Expanded (`game.html`)** — chat UI; messages go to **`POST /api/chat`** and replies are generated with **Groq** (OpenAI-compatible chat completions) on the **server only**.
+- **History** — **`GET /api/chat/history`** loads prior messages for the current post from **Redis** (`chat:${postId}`).
 
+## Stack
 
-- Framework: [Devvit Web](https://developers.reddit.com/)
-- Frontend: [React 19](https://react.dev/), [Tailwind CSS](https://tailwindcss.com/), [Vite](https://vite.dev/)
-- Backend: [Hono](https://hono.dev/) on the Node.js v22+ Devvit serverless runtime
-- API: JSON routes under `/api` (client uses `fetch`); shared request/response types in `src/shared`
-- Persistence / platform: [Redis](https://redis.io/) and Reddit APIs via `@devvit/web/server` where needed
-- Language: [TypeScript](https://www.typescriptlang.org/)
-## Direction
+- Frontend: [React 19](https://react.dev/), [Tailwind CSS 4](https://tailwindcss.com/), [Vite](https://vite.dev/)
+- Backend: [Hono](https://hono.dev/) on the Devvit serverless runtime (`src/server`)
+- AI: [Groq API](https://console.groq.com/docs/api-reference) (`https://api.groq.com/openai/v1/chat/completions`); model ID is set in `src/server/routes/api.ts` (e.g. `llama-3.3-70b-versatile`—change if Groq deprecates it)
+- Shared types: `src/shared` (e.g. chat request/response shapes)
+- Persistence: Redis via `@devvit/web/server`
 
-- Chat-first expanded view; optional splash → expanded flow
-- Placeholder assistant copy now; AI-powered replies later (keys and model calls **server-side only**)
-- Light state (e.g. streaks) can use Redis when you add it
+## AI and secrets
 
-## Getting Started
+Global app settings are defined in **`devvit.json`** under `settings.global`. The Groq key is a **secret** (`groqApiKey`).
 
-> Use **Node.js v22.12+** (or the current LTS range Devvit documents), so Vite’s engine check is satisfied.
+After a successful playtest install, set the value (never commit keys):
+
+```bash
+npx devvit settings set groqApiKey
+```
+
+See [Settings and Secrets](https://developers.reddit.com/docs/capabilities/server/settings-and-secrets).
+
+## Fetch domains (HTTP)
+
+Server `fetch()` is restricted to [allow-listed hosts](https://developers.reddit.com/docs/capabilities/server/http-fetch). This app requests **`api.groq.com`** so the server can call Groq’s chat API.
+
+**Reddit** reviews domain requests when you playtest or upload. **`devvit.json` lists `api.groq.com`**, but outbound calls stay blocked until that hostname is **approved** for your app. Check **Developer Settings** → HTTP fetch domains for your app (`https://developers.reddit.com/apps/kurbot-friend/developer-settings`).
+
+If logs show `HTTP request to domain: api.groq.com is not allowed`, approval is still missing or denied. See [HTTP fetch policy](https://developers.reddit.com/docs/capabilities/server/http-fetch-policy).
+
+## Getting started
+
+Use **Node.js 22.12+** so Vite’s engine check is satisfied (22.11 may warn).
 
 1. Install dependencies:
 
@@ -35,26 +52,25 @@ npm install
 npm run login
 ```
 
-3. Run **playtest** (builds your project and installs it on your Devvit **test subreddit** so you can try the app on Reddit while you code):
+3. Run playtest (builds and installs on your Devvit test subreddit):
 
 ```bash
 npm run dev
 ```
 
-Open the playtest URL the CLI prints (or your `*_dev` subreddit with the `?playtest=…` query param if docs say to). **`git push` only updates GitHub** — it does not update Reddit. Publishing to a wider audience is a separate **upload / publish** step when you are ready.
+Open the playtest URL the CLI prints. **`git push` only updates GitHub** — it does not install the app on Reddit. Use upload/publish when you are ready for a wider rollout.
 
 ## Commands
 
-- `npm run dev` — Devvit playtest (watch + install on test subreddit)
+- `npm run dev` — Devvit playtest (watch + test subreddit install)
 - `npm run build` — Build client and server to `dist/`
 - `npm run deploy` — Type-check, lint, test, then `devvit upload`
-- `npm run launch` — Deploy then `devvit publish` (store / review flow)
-- `npm run login` — `devvit login` (Reddit account for CLI)
-- `npm run type-check` — `tsc --build` (TypeScript project references)
+- `npm run launch` — Deploy then `devvit publish`
+- `npm run login` — `devvit login`
+- `npm run type-check` — `tsc --build`
 - `npm run lint` — ESLint on `src/**/*.{ts,tsx}`
 - `npm run test` — Vitest
 
 ## Notes
 
-- No secrets in the repo.
-- When you add an LLM, keep API keys in Devvit/server configuration, not in client code.
+- Do not put API keys in client code or in the repo. Use Devvit secrets and read them server-side with `settings` from `@devvit/web/server`.

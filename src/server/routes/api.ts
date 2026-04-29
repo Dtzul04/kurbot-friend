@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { context, redis, reddit } from '@devvit/web/server';
+import { context, redis, reddit, settings } from '@devvit/web/server';
 import type {
   ChatHistoryResponse,
   ChatRequest,
@@ -62,6 +62,74 @@ const writeChatMessages = async (
   messages: SavedChatMessage[]
 ) => {
   await redis.set(getChatKey(postId), JSON.stringify(messages));
+};
+
+/** Groq Chat Completions (OpenAI-compatible). See https://console.groq.com/docs/api-reference */
+const GROQ_CHAT_URL = 'https://api.groq.com/openai/v1/chat/completions';
+/** Pick a supported model ID from Groq docs; update if deprecations bite. */
+const GROQ_MODEL = 'llama-3.3-70b-versatile';
+
+const parseGroqMessageContent = (data: unknown): string | undefined => {
+  if (!isRecord(data)) {
+    return undefined;
+  }
+  const choices = data['choices'];
+  if (!Array.isArray(choices) || choices.length < 1) {
+    return undefined;
+  }
+  const first = choices[0];
+  if (!isRecord(first)) {
+    return undefined;
+  }
+  const messageBody = first['message'];
+  if (!isRecord(messageBody)) {
+    return undefined;
+  }
+  const content = messageBody['content'];
+  if (typeof content !== 'string') {
+    return undefined;
+  }
+  const trimmed = content.trim();
+  return trimmed === '' ? undefined : trimmed;
+};
+
+const fetchGroqReply = async (
+  apiKey: string,
+  displayName: string,
+  userMessage: string
+): Promise<string | undefined> => {
+  try {
+    const res = await fetch(GROQ_CHAT_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        messages: [
+          {
+            role: 'system',
+            content:
+              `You are Kurbot Friend—a warm, brief, supportive Reddit chat buddy. Speak to "${displayName}" like a thoughtful friend (no slang overload). Typically a few sentences unless they ask for more.`,
+          },
+          { role: 'user', content: userMessage },
+        ],
+        temperature: 0.7,
+        max_completion_tokens: 512,
+      }),
+    });
+
+    const body: unknown = await res.json();
+    if (!res.ok) {
+      console.error(`Groq error ${res.status}`, body);
+      return undefined;
+    }
+    return parseGroqMessageContent(body);
+  } catch (error) {
+    console.error('Groq fetch failed', error);
+    return undefined;
+  }
 };
 
 export const api = new Hono();
@@ -175,8 +243,33 @@ api.post('/chat', async (c) => {
     return c.json({ status: 'error', message: 'Message is required' }, 400);
   }
 
+  const groqApiKeyUnknown = await settings.get('groqApiKey');
+  const groqApiKey =
+    typeof groqApiKeyUnknown === 'string' ? groqApiKeyUnknown.trim() : '';
+  if (!groqApiKey) {
+    return c.json<ErrorResponse>(
+      {
+        status: 'error',
+        message:
+          'Groq API key is not configured. Ask the app developer to set groqApiKey.',
+      },
+      503
+    );
+  }
+
   const username = await reddit.getCurrentUsername();
-  const reply = `Got it, ${username ?? 'friend'}. You said: “${message}”.`;
+  const friendName = username ?? 'friend';
+  const reply = await fetchGroqReply(groqApiKey, friendName, message);
+  if (reply === undefined) {
+    return c.json<ErrorResponse>(
+      {
+        status: 'error',
+        message:
+          'Kurbot could not reach the AI service. For Devvit playtest: Reddit must approve outgoing HTTP to api.groq.com for this app—open Developer Settings for your app and confirm that domain is allowed (not pending).',
+      },
+      502
+    );
+  }
 
   const previous = await readChatMessages(postId);
   const next: SavedChatMessage[] = [

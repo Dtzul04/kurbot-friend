@@ -17,6 +17,13 @@
     "dir": "dist/server",
     "entry": "index.cjs"
   },
+  "permissions": {
+    "http": {
+      "enable": true,
+      "domains": ["api.groq.com"]
+    },
+    "redis": true
+  },
   "menu": {
     "items": [
       {
@@ -44,5 +51,14 @@
   "scripts": {
     "dev": "vite build --watch",
     "build": "vite build"
+  },
+  "settings": {
+    "global": {
+      "groqApiKey": {
+        "type": "string",
+        "label": "Groq API Key",
+        "isSecret": true
+      }
+    }
   }
 }
