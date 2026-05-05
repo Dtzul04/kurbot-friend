@@ -17,7 +17,14 @@ type ErrorResponse = {
   message: string;
 };
 
+type GeminiContent = {
+  role: 'user' | 'model';
+  parts: { text: string }[];
+};
+
 const getChatKey = (postId: string) => `chat:${postId}`;
+const MAX_CONTEXT_MESSAGES = 12;
+const MAX_STORED_MESSAGES = 40;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
@@ -61,73 +68,105 @@ const writeChatMessages = async (
   postId: string,
   messages: SavedChatMessage[]
 ) => {
-  await redis.set(getChatKey(postId), JSON.stringify(messages));
+  await redis.set(
+    getChatKey(postId),
+    JSON.stringify(messages.slice(-MAX_STORED_MESSAGES))
+  );
 };
 
-/** Groq Chat Completions (OpenAI-compatible). See https://console.groq.com/docs/api-reference */
-const GROQ_CHAT_URL = 'https://api.groq.com/openai/v1/chat/completions';
-/** Pick a supported model ID from Groq docs; update if deprecations bite. */
-const GROQ_MODEL = 'llama-3.3-70b-versatile';
+const GEMINI_MODEL = 'gemini-2.5-flash-lite';
+const GEMINI_CHAT_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
-const parseGroqMessageContent = (data: unknown): string | undefined => {
+const parseGeminiMessageContent = (data: unknown): string | undefined => {
   if (!isRecord(data)) {
     return undefined;
   }
-  const choices = data['choices'];
-  if (!Array.isArray(choices) || choices.length < 1) {
+  const candidates = data['candidates'];
+  if (!Array.isArray(candidates) || candidates.length < 1) {
     return undefined;
   }
-  const first = choices[0];
+  const first = candidates[0];
   if (!isRecord(first)) {
     return undefined;
   }
-  const messageBody = first['message'];
-  if (!isRecord(messageBody)) {
+  const content = first['content'];
+  if (!isRecord(content)) {
     return undefined;
   }
-  const content = messageBody['content'];
-  if (typeof content !== 'string') {
+  const parts = content['parts'];
+  if (!Array.isArray(parts)) {
     return undefined;
   }
-  const trimmed = content.trim();
+  const textParts: string[] = [];
+  for (const part of parts) {
+    if (!isRecord(part)) {
+      continue;
+    }
+    const text = part['text'];
+    if (typeof text === 'string') {
+      textParts.push(text);
+    }
+  }
+  const trimmed = textParts.join('').trim();
   return trimmed === '' ? undefined : trimmed;
 };
 
-const fetchGroqReply = async (
+const buildGeminiContents = (
+  previousMessages: SavedChatMessage[],
+  userMessage: string
+): GeminiContent[] => {
+  const recentMessages = previousMessages.slice(-MAX_CONTEXT_MESSAGES);
+  const historyContents: GeminiContent[] = recentMessages.map((message) => ({
+    role: message.sender === 'you' ? 'user' : 'model',
+    parts: [{ text: message.text }],
+  }));
+
+  return [
+    ...historyContents,
+    {
+      role: 'user',
+      parts: [{ text: userMessage }],
+    },
+  ];
+};
+
+const fetchGeminiReply = async (
   apiKey: string,
   displayName: string,
+  previousMessages: SavedChatMessage[],
   userMessage: string
 ): Promise<string | undefined> => {
   try {
-    const res = await fetch(GROQ_CHAT_URL, {
+    const res = await fetch(GEMINI_CHAT_URL, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        'x-goog-api-key': apiKey,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: GROQ_MODEL,
-        messages: [
-          {
-            role: 'system',
-            content:
-              `You are Kurbot Friend—a warm, brief, supportive Reddit chat buddy. Speak to "${displayName}" like a thoughtful friend (no slang overload). Typically a few sentences unless they ask for more.`,
-          },
-          { role: 'user', content: userMessage },
-        ],
-        temperature: 0.7,
-        max_completion_tokens: 512,
+        systemInstruction: {
+          parts: [
+            {
+              text: `You are Kurbot Friend, a warm, brief, supportive Reddit chat buddy. Speak to "${displayName}" like a thoughtful friend. Typically answer in a few sentences unless they ask for more.`,
+            },
+          ],
+        },
+        contents: buildGeminiContents(previousMessages, userMessage),
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 512,
+        },
       }),
     });
 
     const body: unknown = await res.json();
     if (!res.ok) {
-      console.error(`Groq error ${res.status}`, body);
+      console.error(`Gemini error ${res.status}`, body);
       return undefined;
     }
-    return parseGroqMessageContent(body);
+    return parseGeminiMessageContent(body);
   } catch (error) {
-    console.error('Groq fetch failed', error);
+    console.error('Gemini fetch failed', error);
     return undefined;
   }
 };
@@ -243,15 +282,15 @@ api.post('/chat', async (c) => {
     return c.json({ status: 'error', message: 'Message is required' }, 400);
   }
 
-  const groqApiKeyUnknown = await settings.get('groqApiKey');
-  const groqApiKey =
-    typeof groqApiKeyUnknown === 'string' ? groqApiKeyUnknown.trim() : '';
-  if (!groqApiKey) {
+  const geminiApiKeyUnknown = await settings.get('geminiApiKey');
+  const geminiApiKey =
+    typeof geminiApiKeyUnknown === 'string' ? geminiApiKeyUnknown.trim() : '';
+  if (!geminiApiKey) {
     return c.json<ErrorResponse>(
       {
         status: 'error',
         message:
-          'Groq API key is not configured. Ask the app developer to set groqApiKey.',
+          'Gemini API key is not configured. Ask the app developer to set geminiApiKey.',
       },
       503
     );
@@ -259,19 +298,24 @@ api.post('/chat', async (c) => {
 
   const username = await reddit.getCurrentUsername();
   const friendName = username ?? 'friend';
-  const reply = await fetchGroqReply(groqApiKey, friendName, message);
+  const previous = await readChatMessages(postId);
+  const reply = await fetchGeminiReply(
+    geminiApiKey,
+    friendName,
+    previous,
+    message
+  );
   if (reply === undefined) {
     return c.json<ErrorResponse>(
       {
         status: 'error',
         message:
-          'Kurbot could not reach the AI service. For Devvit playtest: Reddit must approve outgoing HTTP to api.groq.com for this app—open Developer Settings for your app and confirm that domain is allowed (not pending).',
+          'Kurbot could not reach the AI service. Confirm geminiApiKey is set and try again.',
       },
       502
     );
   }
 
-  const previous = await readChatMessages(postId);
   const next: SavedChatMessage[] = [
     ...previous,
     { sender: 'you', text: message },

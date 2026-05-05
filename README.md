@@ -1,76 +1,78 @@
 # Kurbot Friend
 
-Kurbot Friend is a [Devvit Web](https://developers.reddit.com/) app for Reddit: a supportive, chat-style companion in the expanded post view, with a lightweight splash for the feed.
+Kurbot Friend is a Reddit Devvit web app that gives users an AI-powered chat companion inside a Reddit post, solving the problem of turning a static Reddit experience into an interactive, persistent conversation.
 
-## What it does
+## Live Demo
 
-- **Inline (`splash.html`)** — entry to open the full experience.
-- **Expanded (`game.html`)** — chat UI; messages go to **`POST /api/chat`** and replies are generated with **Groq** (OpenAI-compatible chat completions) on the **server only**.
-- **History** — **`GET /api/chat/history`** loads prior messages for the current post from **Redis** (`chat:${postId}`).
+PLACEHOLDER
 
-## Stack
+[ACTION NEEDED: Replace this with the Reddit Devvit playtest, app, or launch URL once the project is deployed.]
 
-- Frontend: [React 19](https://react.dev/), [Tailwind CSS 4](https://tailwindcss.com/), [Vite](https://vite.dev/)
-- Backend: [Hono](https://hono.dev/) on the Devvit serverless runtime (`src/server`)
-- AI: [Groq API](https://console.groq.com/docs/api-reference) (`https://api.groq.com/openai/v1/chat/completions`); model ID is set in `src/server/routes/api.ts` (e.g. `llama-3.3-70b-versatile`—change if Groq deprecates it)
-- Shared types: `src/shared` (e.g. chat request/response shapes)
-- Persistence: Redis via `@devvit/web/server`
+## Tech Stack
 
-## AI and secrets
+- **React 19**: Chosen to build the interactive chat UI with component-based state management and a modern frontend workflow.
+- **TypeScript**: Chosen to make client/server data contracts safer, especially for chat requests, responses, and saved message history.
+- **Tailwind CSS 4**: Chosen for fast, consistent UI styling without creating a large custom CSS layer.
+- **Vite**: Chosen because it gives the Devvit web frontend a fast build pipeline and clean development experience.
+- **Devvit Web**: Chosen because the product is designed to run natively inside Reddit as an inline and expanded post experience.
+- **Hono**: Chosen as a lightweight backend routing layer for Devvit server endpoints such as chat, history, and utility API routes.
+- **Redis via Devvit**: Chosen to persist per-post chat history and provide recent-message context back to the AI.
+- **Google Gemini API**: Chosen to generate AI chat responses from the server using a Devvit globally allow-listed domain without exposing API keys to the browser.
 
-Global app settings are defined in **`devvit.json`** under `settings.global`. The Groq key is a **secret** (`groqApiKey`).
+## Architecture Overview
 
-After a successful playtest install, set the value (never commit keys):
+Kurbot Friend uses two Devvit frontend entrypoints: an inline splash view for the Reddit feed and an expanded chat view for the main experience. The React client sends requests to Hono routes running in Devvit's server environment, where the backend reads Reddit context, sends recent Redis-backed chat history to Gemini for context, and saves new messages back to Redis. Shared TypeScript types keep the frontend request/response shapes aligned with the backend.
+
+## Local Setup
+
+1. Clone the repository:
 
 ```bash
-npx devvit settings set groqApiKey
+git clone https://github.com/Dtzul04/kurbot-friend.git
 ```
 
-See [Settings and Secrets](https://developers.reddit.com/docs/capabilities/server/settings-and-secrets).
-
-## Fetch domains (HTTP)
-
-Server `fetch()` is restricted to [allow-listed hosts](https://developers.reddit.com/docs/capabilities/server/http-fetch). This app requests **`api.groq.com`** so the server can call Groq’s chat API.
-
-**Reddit** reviews domain requests when you playtest or upload. **`devvit.json` lists `api.groq.com`**, but outbound calls stay blocked until that hostname is **approved** for your app. Check **Developer Settings** → HTTP fetch domains for your app (`https://developers.reddit.com/apps/kurbot-friend/developer-settings`).
-
-If logs show `HTTP request to domain: api.groq.com is not allowed`, approval is still missing or denied. See [HTTP fetch policy](https://developers.reddit.com/docs/capabilities/server/http-fetch-policy).
-
-## Getting started
-
-Use **Node.js 22.12+** so Vite’s engine check is satisfied (22.11 may warn).
-
-1. Install dependencies:
+2. Install dependencies:
 
 ```bash
 npm install
 ```
 
-2. Log in once:
+3. Log in to Devvit:
 
 ```bash
 npm run login
 ```
 
-3. Run playtest (builds and installs on your Devvit test subreddit):
+4. Run the Devvit playtest once so Devvit registers the app settings from `devvit.json`:
 
 ```bash
 npm run dev
 ```
 
-Open the playtest URL the CLI prints. **`git push` only updates GitHub** — it does not install the app on Reddit. Use upload/publish when you are ready for a wider rollout.
+5. Configure the Gemini API key as a Devvit secret:
 
-## Commands
+```bash
+npx devvit settings set geminiApiKey
+```
 
-- `npm run dev` — Devvit playtest (watch + test subreddit install)
-- `npm run build` — Build client and server to `dist/`
-- `npm run deploy` — Type-check, lint, test, then `devvit upload`
-- `npm run launch` — Deploy then `devvit publish`
-- `npm run login` — `devvit login`
-- `npm run type-check` — `tsc --build`
-- `npm run lint` — ESLint on `src/**/*.{ts,tsx}`
-- `npm run test` — Vitest
+6. Restart playtest after setting the secret:
 
-## Notes
+```bash
+npm run dev
+```
 
-- Do not put API keys in client code or in the repo. Use Devvit secrets and read them server-side with `settings` from `@devvit/web/server`.
+7. Optional quality checks:
+
+```bash
+npm run type-check
+npm run lint
+```
+
+The app fetches Gemini through `generativelanguage.googleapis.com`, which appears on Devvit's global fetch allowlist.
+
+## Known Limitations / What I Would Improve With More Time
+
+- Chat history is stored per Reddit post in Redis with bounded retention, but there is not yet a user-level long-term memory model.
+- The AI integration currently depends on a single Gemini model ID (`gemini-2.5-flash-lite`), so I would add model configuration, fallback handling, and better observability around quota or provider failures.
+- The UI is functional, but I would improve loading states, accessibility review, mobile polish, and empty/error states before a production launch.
+- The app does not have an automated test suite yet; I would add focused tests for chat parsing, API error handling, Redis persistence, and frontend request states.

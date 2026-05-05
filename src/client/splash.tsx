@@ -1,26 +1,26 @@
 import './index.css';
 
 import { navigateTo } from '@devvit/web/client';
-import { context, requestExpandedMode } from '@devvit/web/client';
+import { requestExpandedMode } from '@devvit/web/client';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
 export const Splash = () => {
   return (
     <div className="relative flex min-h-screen w-full flex-col items-center justify-center gap-8 bg-zinc-100 px-4 py-10 dark:bg-zinc-950">
-      <div className="flex max-w-md flex-col items-center gap-4 text-center">
-        <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50 sm:text-3xl">
-          Hey {context.username ?? 'there'} 👋
-        </h1>
+      <div className="flex w-full max-w-sm flex-col items-center gap-4 rounded-3xl border border-zinc-200 bg-white p-6 text-center shadow-xl dark:border-zinc-800 dark:bg-zinc-900">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-orange-600">
+          Kurbot Friend
+        </p>
         <p className="mx-auto max-w-xs text-base font-medium leading-snug text-zinc-700 dark:text-zinc-200">
-          Speak to Kurbot — unlock possibilities.
+          A supportive AI companion for quick thoughts, study breaks, and honest check-ins.
         </p>
         <button
           type="button"
-          className="flex min-h-[2.75rem] items-center justify-center rounded-full bg-[#d93900] px-8 text-base font-semibold text-white shadow-lg transition hover:bg-[#c23300] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-orange-500/50 dark:bg-orange-600 dark:hover:bg-orange-500"
+          className="flex w-full min-h-[2.75rem] items-center justify-center rounded-full bg-[#d93900] px-8 text-base font-semibold text-white shadow-lg transition hover:bg-[#c23300] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-orange-500/50 dark:bg-orange-600 dark:hover:bg-orange-500"
           onClick={(e) => requestExpandedMode(e.nativeEvent, 'game')}
         >
-          Speak to Kurbot
+          Start chatting
         </button>
       </div>
 

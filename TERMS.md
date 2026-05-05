@@ -1,11 +1,11 @@
-# Terms and Conditions for kurbot-friend
+# Terms and Conditions for Kurbot Friend
 
 **Last Updated:** April 29, 2026
 
-By interacting with the `kurbot-friend` Reddit bot, you agree to these terms. If you do not agree, please do not invoke or interact with the bot.
+By interacting with the `kurbot-friend` Reddit app, you agree to these terms. If you do not agree, please do not interact with the app.
 
 ## 1. Description of Service
-`kurbot-friend` is a Reddit bot that utilizes artificial intelligence (powered by Groq) to read user prompts and generate automated text responses. The bot is provided for entertainment and informational purposes only.
+`kurbot-friend` is a Reddit app that utilizes artificial intelligence (powered by Google Gemini) to read user prompts and generate automated text responses. The app is provided for entertainment and informational purposes only.
 
 ## 2. AI Limitations and Disclaimer
 Because the bot uses generative AI, the responses it produces may be inaccurate, inappropriate, or nonsensical (often referred to as "hallucinations"). 
@@ -16,7 +16,7 @@ Because the bot uses generative AI, the responses it produces may be inaccurate,
 You agree not to use the bot to generate illegal content, harass other Reddit users, or violate [Reddit’s Content Policy](https://www.redditinc.com/policies/content-policy). 
 
 ## 4. Availability
-The bot relies on third-party APIs (Groq) and the Reddit developer platform. We do not guarantee continuous, uninterrupted, or error-free operation. The bot may be taken offline at any time without notice.
+The app relies on third-party APIs (Google Gemini) and the Reddit developer platform. We do not guarantee continuous, uninterrupted, or error-free operation. The app may be taken offline at any time without notice.
 
 ## 5. Limitation of Liability
 The developer of `kurbot-friend` shall not be held liable for any damages, losses, or issues arising from the use of the bot, its generated content, or server downtime. The bot is provided "AS IS" without warranties of any kind.

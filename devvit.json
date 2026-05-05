@@ -20,7 +20,7 @@
   "permissions": {
     "http": {
       "enable": true,
-      "domains": ["api.groq.com"]
+      "domains": ["generativelanguage.googleapis.com"]
     },
     "redis": true
   },
@@ -54,9 +54,9 @@
   },
   "settings": {
     "global": {
-      "groqApiKey": {
+      "geminiApiKey": {
         "type": "string",
-        "label": "Groq API Key",
+        "label": "Gemini API Key",
         "isSecret": true
       }
     }
