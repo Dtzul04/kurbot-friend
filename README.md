@@ -2,11 +2,6 @@
 
 Kurbot Friend is a Reddit Devvit web app that gives users an AI-powered chat companion inside a Reddit post, solving the problem of turning a static Reddit experience into an interactive, persistent conversation.
 
-## Live Demo
-
-PLACEHOLDER
-
-[ACTION NEEDED: Replace this with the Reddit Devvit playtest, app, or launch URL once the project is deployed.]
 
 ## Tech Stack
 

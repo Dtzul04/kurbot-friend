@@ -6,11 +6,11 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "deploy": "npm run type-check && npm run lint && devvit upload",
-    "dev": "devvit playtest",
-    "launch": "npm run deploy && devvit publish",
+    "deploy": "npm run type-check && npm run lint && npx devvit upload",
+    "dev": "npx devvit playtest",
+    "launch": "npm run deploy && npx devvit publish",
     "lint": "eslint 'src/**/*.{ts,tsx}'",
-    "login": "devvit login",
+    "login": "npx devvit login",
     "prettier": "prettier --write .",
     "type-check": "tsc --build"
   },
