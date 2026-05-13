@@ -22,9 +22,15 @@ type GeminiContent = {
   parts: { text: string }[];
 };
 
-const getChatKey = (postId: string) => `chat:${postId}`;
+const getChatKey = (postId: string, username: string) =>
+  `chat:${postId}:${username}`;
+
+const getCountKey = (postId: string) => `count:${postId}`;
+
 const MAX_CONTEXT_MESSAGES = 12;
 const MAX_STORED_MESSAGES = 40;
+/** Limits abuse: Redis payload size and Gemini input. */
+const MAX_CHAT_MESSAGE_CHARS = 4000;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
@@ -56,8 +62,11 @@ const parseSavedMessages = (raw: string): SavedChatMessage[] => {
   }
 };
 
-const readChatMessages = async (postId: string): Promise<SavedChatMessage[]> => {
-  const raw = await redis.get(getChatKey(postId));
+const readChatMessages = async (
+  postId: string,
+  username: string
+): Promise<SavedChatMessage[]> => {
+  const raw = await redis.get(getChatKey(postId, username));
   if (!raw) {
     return [];
   }
@@ -66,10 +75,11 @@ const readChatMessages = async (postId: string): Promise<SavedChatMessage[]> => 
 
 const writeChatMessages = async (
   postId: string,
+  username: string,
   messages: SavedChatMessage[]
 ) => {
   await redis.set(
-    getChatKey(postId),
+    getChatKey(postId, username),
     JSON.stringify(messages.slice(-MAX_STORED_MESSAGES))
   );
 };
@@ -189,7 +199,7 @@ api.get('/init', async (c) => {
 
   try {
     const [count, username] = await Promise.all([
-      redis.get('count'),
+      redis.get(getCountKey(postId)),
       reddit.getCurrentUsername(),
     ]);
 
@@ -224,7 +234,7 @@ api.post('/increment', async (c) => {
     );
   }
 
-  const count = await redis.incrBy('count', 1);
+  const count = await redis.incrBy(getCountKey(postId), 1);
   return c.json<IncrementResponse>({
     count,
     postId,
@@ -244,7 +254,7 @@ api.post('/decrement', async (c) => {
     );
   }
 
-  const count = await redis.incrBy('count', -1);
+  const count = await redis.incrBy(getCountKey(postId), -1);
   return c.json<DecrementResponse>({
     count,
     postId,
@@ -255,12 +265,27 @@ api.post('/decrement', async (c) => {
 api.get('/chat/history', async (c) => {
   const { postId } = context;
   if (!postId) {
-    return c.json<ErrorResponse>({
-      status: 'error',
-      message: 'postId is required',
-    }, 400);
+    return c.json<ErrorResponse>(
+      {
+        status: 'error',
+        message: 'postId is required',
+      },
+      400
+    );
   }
-  const messages = await readChatMessages(postId);
+
+  const username = await reddit.getCurrentUsername();
+  if (!username) {
+    return c.json<ErrorResponse>(
+      {
+        status: 'error',
+        message: 'You must be logged in to use chat.',
+      },
+      401
+    );
+  }
+
+  const messages = await readChatMessages(postId, username);
   return c.json<ChatHistoryResponse>({ messages }, 200);
 });
 
@@ -281,6 +306,26 @@ api.post('/chat', async (c) => {
   if (!message) {
     return c.json({ status: 'error', message: 'Message is required' }, 400);
   }
+  if (message.length > MAX_CHAT_MESSAGE_CHARS) {
+    return c.json<ErrorResponse>(
+      {
+        status: 'error',
+        message: `Message is too long (max ${MAX_CHAT_MESSAGE_CHARS} characters).`,
+      },
+      400
+    );
+  }
+
+  const username = await reddit.getCurrentUsername();
+  if (!username) {
+    return c.json<ErrorResponse>(
+      {
+        status: 'error',
+        message: 'You must be logged in to use chat.',
+      },
+      401
+    );
+  }
 
   const geminiApiKeyUnknown = await settings.get('geminiApiKey');
   const geminiApiKey =
@@ -296,12 +341,10 @@ api.post('/chat', async (c) => {
     );
   }
 
-  const username = await reddit.getCurrentUsername();
-  const friendName = username ?? 'friend';
-  const previous = await readChatMessages(postId);
+  const previous = await readChatMessages(postId, username);
   const reply = await fetchGeminiReply(
     geminiApiKey,
-    friendName,
+    username,
     previous,
     message
   );
@@ -310,7 +353,7 @@ api.post('/chat', async (c) => {
       {
         status: 'error',
         message:
-          'Kurbot could not reach the AI service. Confirm geminiApiKey is set and try again.',
+          'Kurbot could not get a reply from the AI service. Check your API key, quota, or try again in a moment.',
       },
       502
     );
@@ -321,7 +364,7 @@ api.post('/chat', async (c) => {
     { sender: 'you', text: message },
     { sender: 'kurbot', text: reply },
   ];
-  await writeChatMessages(postId, next);
+  await writeChatMessages(postId, username, next);
 
   return c.json<ChatResponse>({ reply }, 200);
 });

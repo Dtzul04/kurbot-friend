@@ -3,7 +3,7 @@ import './index.css';
 import type { ChangeEvent, FormEvent } from 'react';
 import type { ChatHistoryResponse, ChatRequest } from '../shared/chat';
 import { createRoot } from 'react-dom/client';
-import { navigateTo } from '@devvit/web/client';
+import { context, navigateTo } from '@devvit/web/client';
 import { StrictMode, useEffect, useRef, useState } from 'react';
 
 type ChatSender = 'you' | 'kurbot';
@@ -86,20 +86,36 @@ export const ChatBubble = ({ chatMessage }: ChatBubbleProps) => {
   );
 };
 
+const LOGIN_REQUIRED_MESSAGE =
+  'Please log in to your Reddit account to chat. Your conversation is saved only for you on this post.';
+
 export const App = () => {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: 1,
-      sender: 'kurbot',
-      text: 'Hey — I am Kurbot Friend. Type anything to get started.',
-    },
-  ]);
+  const isLoggedIn = Boolean(context.username);
+
+  const [messages, setMessages] = useState<ChatMessage[]>(() =>
+    isLoggedIn
+      ? [
+          {
+            id: 1,
+            sender: 'kurbot',
+            text: 'Hey — I am Kurbot Friend. Type anything to get started.',
+          },
+        ]
+      : [
+          {
+            id: 1,
+            sender: 'kurbot',
+            text: LOGIN_REQUIRED_MESSAGE,
+          },
+        ]
+  );
 
   const [draft, setDraft] = useState<string>('');
   const nextMessageId = useRef<number>(2);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
   const [isTyping, setIsTyping] = useState<boolean>(false);
-  const isSendDisabled = draft.trim().length === 0 || isTyping;
+  const isSendDisabled =
+    !isLoggedIn || draft.trim().length === 0 || isTyping;
 
   useEffect(() => {
     const element = chatContainerRef.current;
@@ -110,9 +126,24 @@ export const App = () => {
   }, [messages, isTyping]);
 
   useEffect(() => {
+    if (!isLoggedIn) {
+      return;
+    }
+
     const loadHistory = async () => {
       try {
         const res = await fetch('/api/chat/history');
+        if (res.status === 401) {
+          setMessages([
+            {
+              id: 1,
+              sender: 'kurbot',
+              text: LOGIN_REQUIRED_MESSAGE,
+            },
+          ]);
+          nextMessageId.current = 2;
+          return;
+        }
         if (!res.ok) {
           return;
         }
@@ -134,7 +165,7 @@ export const App = () => {
       }
     };
     void loadHistory();
-  }, []);
+  }, [isLoggedIn]);
 
   function getNextMessageId(): number {
     const id = nextMessageId.current;
@@ -146,7 +177,11 @@ export const App = () => {
     setMessages((previousMessages) => [...previousMessages, ...newMessages]);
   };
 
-  const sendDraft = async() =>{
+  const sendDraft = async () => {
+    if (!isLoggedIn) {
+      return;
+    }
+
     const trimmedDraft = draft.trim();
     if (!trimmedDraft) {
       return;
@@ -166,6 +201,15 @@ export const App = () => {
       const raw: unknown = await res.json();
       if (!res.ok) {
         const errMsg = parseApiErrorMessage(raw);
+        if (res.status === 401) {
+          addMessages([
+            createKurbotReply(
+              getNextMessageId(),
+              errMsg ?? LOGIN_REQUIRED_MESSAGE,
+            ),
+          ]);
+          return;
+        }
         addMessages([
           createKurbotReply(
             getNextMessageId(),
@@ -237,9 +281,12 @@ export const App = () => {
           }}
         >
           <input
-            className="h-11 min-w-0 flex-1 rounded-full border border-zinc-300 bg-white px-4 text-sm text-zinc-900 shadow-sm transition-shadow placeholder:text-zinc-400 focus:border-orange-500/60 focus:outline-none focus:ring-2 focus:ring-orange-500/25 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500"
-            placeholder="Message Kurbot…"
+            className="h-11 min-w-0 flex-1 rounded-full border border-zinc-300 bg-white px-4 text-sm text-zinc-900 shadow-sm transition-shadow placeholder:text-zinc-400 focus:border-orange-500/60 focus:outline-none focus:ring-2 focus:ring-orange-500/25 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500 disabled:cursor-not-allowed disabled:opacity-60"
+            placeholder={
+              isLoggedIn ? 'Message Kurbot…' : 'Log in to Reddit to chat…'
+            }
             value={draft}
+            disabled={!isLoggedIn}
             onChange={(event: ChangeEvent<HTMLInputElement>) =>
               setDraft(event.target.value)
             }
@@ -251,7 +298,7 @@ export const App = () => {
             className={
               isSendDisabled
                 ? 'h-11 shrink-0 cursor-not-allowed rounded-full bg-zinc-200 px-5 text-sm font-medium text-zinc-500 dark:bg-zinc-800 dark:text-zinc-500'
-                : 'h-11 shrink-0 cursor-pointer rounded-full bg-[#d93900] px-5 text-sm font-medium text-white shadow-sm transition hover:bg-[#c23300] focus:outline-none focus:ring-2 focus:ring-orange-500/40 dark:bg-orange-600 dark:hover:bg-orange-500 acrive:scale-95'
+                : 'h-11 shrink-0 cursor-pointer rounded-full bg-[#d93900] px-5 text-sm font-medium text-white shadow-sm transition hover:bg-[#c23300] focus:outline-none focus:ring-2 focus:ring-orange-500/40 active:scale-95 dark:bg-orange-600 dark:hover:bg-orange-500'
             }
           >
             Send
